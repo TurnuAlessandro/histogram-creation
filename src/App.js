@@ -16,12 +16,14 @@ const transitionDuration = 1000;
 
 function App() {
   const svgWidth = 1000;
-  const svgHeight = 300;
+  const svgHeight = 600;
 
-  const [dataMap, setData] = useState(new Map());
+  const [dataMap, setDataMap] = useState(new Map());
   const containerRef = useRef(null);
 
+    const [data, setData] = useState(d3.range(300).map(x => Math.random()*100));
 
+/*
     useEffect(() => {
         let initialMap = new Map(dataMap);
         let id = uuidv4();
@@ -30,14 +32,87 @@ function App() {
         initialMap.set(id, element(id));
         id = uuidv4();
         initialMap.set(id, element(id));
-        setData(initialMap);
-    }, []);
-
+        setDataMap(initialMap);
+    }, [null]);
+*/
   useLayoutEffect(() => {
-    let data = [...dataMap.values()];
-
+console.log(data)
     if (Array.isArray(data)) {
-      const histogram = d3.select('svg').selectAll('rect').data(data);
+        let margin = {
+            top: 40,
+            right: 30,
+            bottom: 30,
+            left: 40
+        };
+        let width = svgWidth - margin.left - margin.right;
+        let height = svgHeight - margin.top - margin.bottom;
+
+        let svg = d3.select("#histogram")
+            .append('svg')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.bottom + margin.top)
+            .append('g')
+            .attr('transform', `translate(${margin.left},${margin.top})`)
+      //const histogram = d3.select('svg').selectAll('rect').data(data);
+
+
+
+
+        // get the data
+            // X axis: scale and draw:
+            var x = d3.scaleLinear()
+                .domain([0, 100]) // axis y range
+                .range([0, width]);//data.lenght]); // axis x range
+            svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x));
+
+            // set the parameters for the histogram
+           /* var histogram = d3.histogram()
+                .value(d => d)   // I need to give the vector of value
+                .domain(x.domain())  // then the domain of the graphic
+                .thresholds(x.ticks(data.lenght)); // then the numbers of bins*/
+
+            // And apply this function to data to get the bins
+           // var bins = histogram(data);
+
+            // Y axis: scale and draw:
+            var y = d3.scaleLinear()
+                .range([0, height])
+                .domain([d3.max(data, d => d), 0])
+            svg.append("g")
+                .call(d3.axisLeft(y));
+console.log("x", x, "y", y)
+            // append the bar rectangles to the svg element
+
+        let translateX = width / (data.length);
+
+        svg.selectAll("rect")
+                //.data(bins)
+                .data(data)
+                .enter()
+                .append("rect")
+                .attr("x", 1)
+                .attr("transform", function(d, i) {
+                    return `translate(${i*translateX},${y(d)})`; })
+                .attr("width", function(d) {
+                    return x(d)-20  ; })
+                .attr('value', d=> d)
+                .attr("height", function(d) { return height - y(d); })
+                .style("fill", () => getRandomColor())
+
+
+                .attr("width", (width) / (data.length > 0 ? data.length : 1))
+
+
+
+
+
+
+
+/*
+
+
       histogram
           .enter()
           .append('rect')
@@ -112,7 +187,7 @@ function App() {
                       d3
                           .select(this)
                           .raise()
-                          .attr('x', event.x)*/
+                          .attr('x', event.x)
 
 
 
@@ -128,16 +203,18 @@ function App() {
                   })
 
           )
-      histogram.exit().remove();
+      histogram.exit().remove();*/
     }
-  }, [dataMap]);
+  }, [dataMap, data]);
 
   return (
       <>
 
-        <svg width={svgWidth} height={svgHeight} ref={containerRef} />
+          {/*<svg width={svgWidth} height={svgHeight} ref={containerRef}/>*/}
 
-        <div>
+        <div id="histogram" />
+
+        <div >
             <button
                 onClick={() => {
                     setData(d => {
@@ -167,3 +244,11 @@ function App() {
 };
 
 export default App;
+
+
+
+
+
+
+
+
