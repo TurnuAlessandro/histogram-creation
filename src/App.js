@@ -23,6 +23,11 @@ function App() {
     let [wheelSpeed, setWheelSpeed] = useState(5);
 
 
+    function addRandomElementToMap(){
+        let id = uuidv4();
+        dataMap.set(id, element(id));
+        setDataMap(new Map(dataMap));
+    }
 
     useEffect(() => {
         let initialMap = new Map(dataMap);
@@ -34,7 +39,12 @@ function App() {
         })
 
         setDataMap(initialMap);
+
+
+
     }, []);
+
+
 
     useLayoutEffect(() => {
         let dataArray = [...dataMap.values()]
@@ -153,13 +163,38 @@ function App() {
                 .attr('value', d => d.value)
                 .attr('height', function(d) { return height - y(d.value); })
                 .style('fill', d => d.color)
-                .on('mouseenter', function (actual, i) {
+                .on('mouseenter', function (event, data) {
                     d3.select(this)
                         .attr('opacity', 0.8)
+
+                    let thisElement = this;
+                    console.log(data)
+
+                    d3.select('body')
+                        .attr('focusable', 'true')
+                        .on('keydown', function(e) { // manage up, down and canc and n (or N) keys
+                            switch (e.keyIdentifier) {
+                                case 'Up':
+                                    updateValue(thisElement, data.uuid, data.value+wheelSpeed, wheelSpeed*10)
+                                    break;
+                                case 'Down':
+                                    updateValue(thisElement, data.uuid, data.value-wheelSpeed, wheelSpeed*10)
+                                    break;
+                                case 'U+0008': // delete key (to delete key)
+                                    dataMap.delete(data.uuid);
+                                    setDataMap(new Map(dataMap))
+                                    break;
+                                case 'U+004E': // 'n' key
+                                    addRandomElementToMap();
+                                    break;
+                            }
+                            console.log(e.keyIdentifier)
+                        });
+
                 })
                 .on('mouseover', function(actual, i){
                     d3.select(this)
-                        .attr('stroke', 'black');
+                        .attr('stroke', 'black')
                 })
                 .on('wheel', function (wheelInfo, data){
 
@@ -172,6 +207,11 @@ function App() {
                     d3.select(this)
                         .attr('opacity', 1)
                         .attr('stroke', null)
+                        .on('keydown', null)
+
+                    d3.select('body')
+                        .attr('focusable', 'false')
+                        .on('keydown', null);
                 })
                 .on('click', function(actual, data){
                     var response = prompt("Change value:", data.value);
@@ -286,25 +326,7 @@ function App() {
 
             <div >
                 <button
-                    onClick={() => {
-                        setDataMap(d => {
-                            let newMap = new Map(d);
-                            let id = uuidv4();
-                            newMap.set(id, element(id));
-                            return newMap;
-                        })
-                    }}>
-                    ciaoo
-                </button>
-                <button
-                    onClick={() => {
-                        setDataMap(d => {
-                            let newMap = new Map(d);
-                            let id = uuidv4();
-                            newMap.set(id, element(id));
-                            return newMap;
-                        })
-                    }}>
+                    onClick={addRandomElementToMap}>
                     ciaoo
                 </button>
                 <input
@@ -318,8 +340,8 @@ function App() {
                     onChange={() => {
                         setWheelSpeed(parseInt(wheel.current.value))
                     }}/>
-                    <div>
-                        {wheelSpeed}</div>
+                <div>
+                    {wheelSpeed}</div>
             </div>
 
         </>
