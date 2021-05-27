@@ -29,6 +29,23 @@ function App() {
         setDataMap(new Map(dataMap));
     }
 
+    function addRandomElementToMapAfterXuuid(xUuid){
+        let dataMapEntries = dataMap.entries();
+        
+        let newMap = new Map();
+
+        let newElementUuid = uuidv4();
+        [...dataMapEntries].forEach(([k, v]) => {
+            newMap.set(k, v);
+            if(k == xUuid) {
+                newMap.set(newElementUuid, element(newElementUuid))
+            }
+        })
+
+        setDataMap(newMap);
+
+    }
+
     useEffect(() => {
         let initialMap = new Map(dataMap);
         let id = 0;
@@ -178,7 +195,6 @@ function App() {
                         .attr('opacity', 0.8)
 
                     let thisElement = this;
-                    console.log(data)
 
                     d3.select('body')
                         .attr('focusable', 'true')
@@ -195,7 +211,8 @@ function App() {
                                     setDataMap(new Map(dataMap))
                                     break;
                                 case 'U+004E': // 'n' key
-                                    addRandomElementToMap();
+                                    console.log('pressed n')
+                                    addRandomElementToMapAfterXuuid(data.uuid);
                                     break;
                             }
                         });
@@ -222,7 +239,6 @@ function App() {
                         .on('keydown', function(e) { // manage up, down and canc and n (or N) keys
                         if(e.keyIdentifier == 'U+004E'){ // 'n' key
                             addRandomElementToMap();
-
                         }
                     });
                 })
