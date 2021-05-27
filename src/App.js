@@ -48,6 +48,16 @@ function App() {
 
     useLayoutEffect(() => {
         let dataArray = [...dataMap.values()]
+
+        d3.select('body')
+            .attr('focusable', 'true')
+            .on('keydown', function(e) { // manage up, down and canc and n (or N) keys
+                if(e.keyIdentifier == 'U+004E'){ // 'n' key
+                        addRandomElementToMap();
+
+                }
+            });
+
         if (Array.isArray(dataArray)) {
             let margin = {
                 top: 40,
@@ -188,7 +198,6 @@ function App() {
                                     addRandomElementToMap();
                                     break;
                             }
-                            console.log(e.keyIdentifier)
                         });
 
                 })
@@ -207,11 +216,15 @@ function App() {
                     d3.select(this)
                         .attr('opacity', 1)
                         .attr('stroke', null)
-                        .on('keydown', null)
 
                     d3.select('body')
                         .attr('focusable', 'false')
-                        .on('keydown', null);
+                        .on('keydown', function(e) { // manage up, down and canc and n (or N) keys
+                        if(e.keyIdentifier == 'U+004E'){ // 'n' key
+                            addRandomElementToMap();
+
+                        }
+                    });
                 })
                 .on('click', function(actual, data){
                     var response = prompt("Change value:", data.value);
