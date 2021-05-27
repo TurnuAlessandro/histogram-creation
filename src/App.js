@@ -15,7 +15,7 @@ function element(uuid){
 const transitionDuration = 100;
 
 function App() {
-    const svgWidth = 1000;
+    const svgWidth = 600;
     const svgHeight = 600;
 
     let [dataMap, setDataMap] = useState(new Map());
@@ -23,15 +23,86 @@ function App() {
     let [wheelSpeed, setWheelSpeed] = useState(5);
 
 
-    function addRandomElementToMap(){
+    let margin = {
+        top: 40,
+        right: 30,
+        bottom: 30,
+        left: 40
+    };
+    let width = svgWidth - margin.left - margin.right;
+    let height = svgHeight - margin.top - margin.bottom;
+
+    let dataArray = [...dataMap.values()]
+    let maxYvalue = d3.max(dataArray, d => d.value);
+
+
+    d3.selection.prototype.first = function (){
+        return d3.select(this.nodes()[0])
+    }
+    d3.selection.prototype.last = function (){
+        return d3.select(this.nodes()[this.size()-1])
+    }
+
+
+    // Adds an element to the map at the end of the map => adds a rect after the last one
+    function addRandomElementToMap(transitionDuration){
         let id = uuidv4();
         dataMap.set(id, element(id));
-        setDataMap(new Map(dataMap));
+
+        let newY = d3.scaleLinear()
+            .range([0, height])
+            .domain([d3.max([...dataMap.values()], d => d.value), 0])
+
+
+        d3.select('svg')
+            .selectAll('rect')
+            .transition()
+            .duration(transitionDuration)
+            .attr('x', (_, i) => i*(width / (dataArray.length+1)))
+            .attr('y', (d, i) => newY(d.value))
+            .attr('width', (width) / (dataArray.length+1 > 0 ? dataArray.length+1 : 1))
+            .attr('value', d => d.value)
+            .attr('height', function(d) { return height - newY(d.value); })
+
+        // new rect creation, it must be put after the last rect, with overflow on the x axis
+        let newRect = d3.select('svg')
+                        .select('g')
+                        .append('rect')
+                        .attr('x', (dataMap.size-1)*(width / (dataArray.length)))//(dataMap.size)*(width / (dataArray.length)))
+                        .attr('y', newY(dataMap.get(id).value))
+                        .attr('width', (width) / (dataArray.length > 0 ? dataArray.length : 1))
+                        .attr('value', dataMap.get(id).value)
+                        .attr('height', height - newY(dataMap.get(id).value))
+                        .attr('fill', dataMap.get(id).color)
+
+        // move the new rect on its right position
+        newRect.transition()
+            .duration(transitionDuration)
+            .attr('x', (dataMap.size-1)*(width / (dataArray.length+1)))
+            .attr('width', (width) / (dataArray.length+1 > 0 ? dataArray.length+1 : 1))
+
+
+
+        /*
+                let histogram = svg.selectAll('rect')
+                    .data([dataMap.get(id)])
+                    .enter()
+                    .append('rect')
+                    .attr('x', (_, i) => i*translateX)
+                    .attr('y', (d, i) => y(d.value))
+                    .attr('width', (width) / (dataArray.length > 0 ? dataArray.length : 1))
+                    .attr('value', d => d.value)
+                    .attr('height', function(d) { return height - y(d.value); })
+                    .style('fill', d => d.color)*/
+
+        // console.log(d3.select('svg').selectAll('rect').last().transition().duration(1000).attr('width', width/2))
+
+        setTimeout(() => setDataMap(new Map(dataMap)), transitionDuration);
     }
 
     function addRandomElementToMapAfterXuuid(xUuid){
         let dataMapEntries = dataMap.entries();
-        
+
         let newMap = new Map();
 
         let newElementUuid = uuidv4();
@@ -50,7 +121,7 @@ function App() {
         let initialMap = new Map(dataMap);
         let id = 0;
 
-        d3.range(10).map(x => {
+        d3.range(3).map(x => {
             id = uuidv4();
             initialMap.set(id, element(id));
         })
@@ -64,28 +135,11 @@ function App() {
 
 
     useLayoutEffect(() => {
-        let dataArray = [...dataMap.values()]
 
-        d3.select('body')
-            .attr('focusable', 'true')
-            .on('keydown', function(e) { // manage up, down and canc and n (or N) keys
-                if(e.keyIdentifier == 'U+004E'){ // 'n' key
-                        addRandomElementToMap();
 
-                }
-            });
 
         if (Array.isArray(dataArray)) {
-            let margin = {
-                top: 40,
-                right: 30,
-                bottom: 30,
-                left: 40
-            };
-            let width = svgWidth - margin.left - margin.right;
-            let height = svgHeight - margin.top - margin.bottom;
 
-            let maxYvalue = d3.max(dataArray, d => d.value);
 
             d3.select('#histogram svg').remove();
             let svg = d3.select("#histogram")
@@ -117,6 +171,16 @@ function App() {
 
 
             let translateX = width / (dataArray.length);
+
+
+            d3.select('body')
+                .attr('focusable', 'true')
+                .on('keydown', function(e) { // manage up, down and canc and n (or N) keys
+                    if(e.keyIdentifier == 'U+004E'){ // 'n' key
+                        addRandomElementToMap();
+
+                    }
+                });
 
             /* Function to update a value of a specified rect (d3 element)
             * (with transitions to other rects too) */
@@ -180,6 +244,9 @@ function App() {
                 }, transitionTime);
             }
 
+
+
+
             let histogram = svg.selectAll('rect')
                 .data(dataArray)
                 .enter()
@@ -192,7 +259,7 @@ function App() {
                 .style('fill', d => d.color)
                 .on('mouseenter', function (event, data) {
                     d3.select(this)
-                        .attr('opacity', 0.8)
+                        .attr('opacity', 0.6)
 
                     let thisElement = this;
 
@@ -211,8 +278,7 @@ function App() {
                                     setDataMap(new Map(dataMap))
                                     break;
                                 case 'U+004E': // 'n' key
-                                    console.log('pressed n')
-                                    addRandomElementToMapAfterXuuid(data.uuid);
+                                    addRandomElementToMapAfterXuuid(data.uuid); // insertion after the current (this) element
                                     break;
                             }
                         });
@@ -221,6 +287,7 @@ function App() {
                 .on('mouseover', function(actual, i){
                     d3.select(this)
                         .attr('stroke', 'black')
+                        .attr('stroke-width', 3)
                 })
                 .on('wheel', function (wheelInfo, data){
 
@@ -237,10 +304,10 @@ function App() {
                     d3.select('body')
                         .attr('focusable', 'false')
                         .on('keydown', function(e) { // manage up, down and canc and n (or N) keys
-                        if(e.keyIdentifier == 'U+004E'){ // 'n' key
-                            addRandomElementToMap();
-                        }
-                    });
+                            if(e.keyIdentifier == 'U+004E'){ // 'n' key
+                                addRandomElementToMap();
+                            }
+                        });
                 })
                 .on('click', function(actual, data){
                     var response = prompt("Change value:", data.value);
@@ -355,7 +422,7 @@ function App() {
 
             <div >
                 <button
-                    onClick={addRandomElementToMap}>
+                    onClick={() => addRandomElementToMap(500)}>
                     ciaoo
                 </button>
                 <input
