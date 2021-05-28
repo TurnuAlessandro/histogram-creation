@@ -3,31 +3,38 @@ import React, { useRef, useState, useLayoutEffect, useEffect } from 'react';
 import * as d3 from 'd3';
 import { getRandomColor } from "./utils/randomColors";
 import { v4 as uuidv4 } from 'uuid';
+import { getWidth, getHeight } from "./utils/pageDimensions";
 
-function element(uuid){
+function element(uuid, value, color){
     return {
         uuid,
-        value: Math.floor(Math.random() * 100 + 20), // +20 per evitare la presenza di zeri
-        color: getRandomColor()
+        value: value ? value : Math.floor(Math.random() * 100 * 4), // +20 per evitare la presenza di zeri
+        color: color ? color : getRandomColor()
     };
 }
 
 const transitionDuration = 100;
 
 function App() {
-    const svgWidth = 600;
-    const svgHeight = 600;
 
     let [dataMap, setDataMap] = useState(new Map());
     let wheel = useRef(null);
     let [wheelSpeed, setWheelSpeed] = useState(5);
+    let addRectBtn = useRef(null);
+    let addRandomRectBtn = useRef(null);
+    let [svgWidth, setSvgWidth] = useState();
+    let [svgHeight, setSvgHeight] = useState(600);
+    let widthInput = useRef(null);
+
+
+let aaa = window.innerWidth
 
 
     let margin = {
         top: 40,
-        right: 30,
+        right: 50,
         bottom: 30,
-        left: 40
+        left: 20
     };
     let width = svgWidth - margin.left - margin.right;
     let height = svgHeight - margin.top - margin.bottom;
@@ -35,6 +42,10 @@ function App() {
     let dataArray = [...dataMap.values()]
     let maxYvalue = d3.max(dataArray, d => d.value);
 
+
+     window.onresize = () => {
+         setSvgWidth((document.getElementById('histogram-container')?.clientWidth))
+     }
 
     d3.selection.prototype.first = function (){
         return d3.select(this.nodes()[0])
@@ -45,15 +56,18 @@ function App() {
 
 
     // Adds an element to the map at the end of the map => adds a rect after the last one
-    function addRandomElementToMap(transitionDuration){
+    function addRandomElementToMap(data,transitionDuration){
         let id = uuidv4();
-        dataMap.set(id, element(id));
+        dataMap.set(id, element(id, data?.value, data?.color));
 
+
+
+        // needed to scale all the other rects
         let newY = d3.scaleLinear()
             .range([0, height])
             .domain([d3.max([...dataMap.values()], d => d.value), 0])
 
-
+        // movement of the other rects
         d3.select('svg')
             .selectAll('rect')
             .transition()
@@ -66,14 +80,14 @@ function App() {
 
         // new rect creation, it must be put after the last rect, with overflow on the x axis
         let newRect = d3.select('svg')
-                        .select('g')
-                        .append('rect')
-                        .attr('x', (dataMap.size-1)*(width / (dataArray.length)))//(dataMap.size)*(width / (dataArray.length)))
-                        .attr('y', newY(dataMap.get(id).value))
-                        .attr('width', (width) / (dataArray.length > 0 ? dataArray.length : 1))
-                        .attr('value', dataMap.get(id).value)
-                        .attr('height', height - newY(dataMap.get(id).value))
-                        .attr('fill', dataMap.get(id).color)
+            .select('g')
+            .append('rect')
+            .attr('x', (dataMap.size-1)*(width / (dataArray.length)))//(dataMap.size)*(width / (dataArray.length)))
+            .attr('y', newY(dataMap.get(id).value))
+            .attr('width', (width) / (dataArray.length > 0 ? dataArray.length : 1))
+            .attr('value', dataMap.get(id).value)
+            .attr('height', height - newY(dataMap.get(id).value))
+            .attr('fill', dataMap.get(id).color)
 
         // move the new rect on its right position
         newRect.transition()
@@ -81,21 +95,6 @@ function App() {
             .attr('x', (dataMap.size-1)*(width / (dataArray.length+1)))
             .attr('width', (width) / (dataArray.length+1 > 0 ? dataArray.length+1 : 1))
 
-
-
-        /*
-                let histogram = svg.selectAll('rect')
-                    .data([dataMap.get(id)])
-                    .enter()
-                    .append('rect')
-                    .attr('x', (_, i) => i*translateX)
-                    .attr('y', (d, i) => y(d.value))
-                    .attr('width', (width) / (dataArray.length > 0 ? dataArray.length : 1))
-                    .attr('value', d => d.value)
-                    .attr('height', function(d) { return height - y(d.value); })
-                    .style('fill', d => d.color)*/
-
-        // console.log(d3.select('svg').selectAll('rect').last().transition().duration(1000).attr('width', width/2))
 
         setTimeout(() => setDataMap(new Map(dataMap)), transitionDuration);
     }
@@ -117,20 +116,18 @@ function App() {
 
     }
 
+    // used to initialize the map
     useEffect(() => {
-        let initialMap = new Map(dataMap);
+        let initialMap = new Map();
         let id = 0;
 
-        d3.range(3).map(x => {
+        d3.range(30).map(x => {
             id = uuidv4();
             initialMap.set(id, element(id));
         })
-
         setDataMap(initialMap);
-
-
-
-    }, []);
+        setSvgWidth(parseInt(document.getElementById('histogram-container')?.clientWidth)); // if i put it in the default value of useState, histogram-container is not loaded yet, so it returns 0
+    }, [null]);
 
 
 
@@ -184,8 +181,11 @@ function App() {
 
             /* Function to update a value of a specified rect (d3 element)
             * (with transitions to other rects too) */
-            let updateValue = (d3element, elementUuid, newValue, transitionTime) => {
+            function updateValue(d3element, elementUuid, newValue, transitionTime){
                 let oldValue = parseFloat(d3.select(d3element).attr('value'));
+
+                if(newValue <= 0.5)
+                    newValue = 0.5
 
                 if(newValue > maxYvalue){ // here the user changes the value with a value grater then the max value
 
@@ -380,9 +380,11 @@ function App() {
                 .call(d3.drag()
                     .on('start', function dragStarted(){
                         d3.select(this)
-                            .attr('stroke', 'black');
+                            .attr('stroke', 'black')
+                            //.attr('oldX', parseFloat(d3.select(this).attr('x')))
                     })
                     .on('drag', function dragged(event, d){
+
 
                         let newX;
                         // we need to understand where the mouse is, if it is on the first half of the element or on the second one
@@ -396,33 +398,58 @@ function App() {
                         }
                         d3.select(this)
                             .raise()
-                            .attr('x',
-                                newX
-                            )
-                        d3
-                            .select(this)
-                            .raise()
-                            .attr('x', event.x)
+                            .attr('x', newX)
                     })
                     .on('end', function dragEnded(){
                         d3.select(this)
-                            .attr('stroke', null);
+                            .attr('stroke', null)
+                            //.transition()
+                            //.duration(500)
+                           // .attr('x', parseFloat(d3.select(this).attr('oldX')))
                     })
                 )
             histogram.exit().remove();
         }
-    }, [dataMap]);
+    }, [dataMap, svgWidth]);
 
     return (
-        <>
 
-            {/*<svg width={svgWidth} height={svgHeight} ref={containerRef}/>*/}
+<div className="container-fluid border border-dark">
+    <div className='row'>
+        <div className='col pt-2 pb-2'>
+            <button
+                className='btn btn-outline-primary mr-3'
+                ref={addRectBtn}
+                onClick={() => {
+                    addRandomElementToMap({value: 900}, 500)
+                    // TODO bug: l'asse delle y non si aggiorna bene, sistemare la cosa senza farlo hardcoded ma con il menù
+                    addRectBtn.current.disabled = true;
+                    setTimeout(() => addRectBtn.current.disabled = false, 500)
+                }}>
+                Add Rect
+            </button>
+            <button
+                className='btn btn-outline-primary'
+                ref={addRandomRectBtn}
+                onClick={() => {
+                    addRandomElementToMap(null,500)
+                    addRandomRectBtn.current.disabled = true;
+                    setTimeout(() => addRandomRectBtn.current.disabled = false, 500)
+                }}>
+                Add Random Rect
+            </button>
+        </div>
+    </div>
+    <div className='row'>
+        <div className='col-12 col-md-8 border border-dark' id='histogram-container'>
 
             <div id="histogram" />
-
-            <div >
+        </div>
+        <div className='col-12 col-md-4 border border-dark'>
+secondo menu <br />
+            <div>
                 <button
-                    onClick={() => addRandomElementToMap(500)}>
+                    >
                     ciaoo
                 </button>
                 <input
@@ -431,16 +458,45 @@ function App() {
                     min="1"
                     max="20"
                     step="1"
-                    id="wheelController"
                     defaultValue={wheelSpeed}
                     onChange={() => {
                         setWheelSpeed(parseInt(wheel.current.value))
-                    }}/>
+                    }}/>{wheelSpeed}
                 <div>
-                    {wheelSpeed}</div>
+                </div>
             </div>
 
-        </>
+            <div>
+                <label htmlFor="widthInput">Edit svg width</label>
+
+                <input
+                    id="widthInput"
+                    className='input'
+                    ref={widthInput}
+                    type="number"
+                    min={250}
+                    max={getWidth() - 50}
+                    step={10}
+                    defaultValue={svgWidth}
+                    onChange={() => {
+                        let value = parseInt(widthInput.current.value);
+                        let [min, max] = [parseInt(widthInput.current.min), parseInt(widthInput.current.max)]
+                        if (value > max)
+                            value = max;
+                        if (value < min)
+                            value = min;
+                        //setSvgWidth(parseInt(value))
+                    }}
+                />
+                {window.innerWidth}
+            </div>
+        </div>
+    </div>
+
+
+
+
+</div>
     );
 };
 
