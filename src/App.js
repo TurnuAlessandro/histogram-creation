@@ -8,7 +8,7 @@ import { getWidth, getHeight } from "./utils/pageDimensions";
 function element(uuid, value, color){
     return {
         uuid,
-        value: value ? value : Math.floor(Math.random() * 100 * 4), // +20 per evitare la presenza di zeri
+        value: value ? value : Math.floor(Math.random() * 100 * 4 + 1), // +20 per evitare la presenza di zeri
         color: color ? color : getRandomColor()
     };
 }
@@ -23,18 +23,15 @@ function App() {
     let addRectBtn = useRef(null);
     let addRandomRectBtn = useRef(null);
     let [svgWidth, setSvgWidth] = useState();
-    let [svgHeight, setSvgHeight] = useState(600);
+    let [svgHeight, setSvgHeight] = useState(550);
     let widthInput = useRef(null);
-
-
-let aaa = window.innerWidth
 
 
     let margin = {
         top: 40,
-        right: 50,
+        right: 20,
         bottom: 30,
-        left: 20
+        left: 40
     };
     let width = svgWidth - margin.left - margin.right;
     let height = svgHeight - margin.top - margin.bottom;
@@ -43,10 +40,12 @@ let aaa = window.innerWidth
     let maxYvalue = d3.max(dataArray, d => d.value);
 
 
-     window.onresize = () => {
-         setSvgWidth((document.getElementById('histogram-container')?.clientWidth))
-     }
+    // when the user change of the window
+    window.onresize = () => {
+        setSvgWidth((document.getElementById('histogram-container')?.clientWidth))
+    }
 
+    // created to get the last and the first node of a d3 selection
     d3.selection.prototype.first = function (){
         return d3.select(this.nodes()[0])
     }
@@ -56,7 +55,7 @@ let aaa = window.innerWidth
 
 
     // Adds an element to the map at the end of the map => adds a rect after the last one
-    function addRandomElementToMap(data,transitionDuration){
+    function addRandomElementToMap(data, transitionDuration){
         let id = uuidv4();
         dataMap.set(id, element(id, data?.value, data?.color));
 
@@ -66,6 +65,12 @@ let aaa = window.innerWidth
         let newY = d3.scaleLinear()
             .range([0, height])
             .domain([d3.max([...dataMap.values()], d => d.value), 0])
+
+        // scale Y axis with transition
+        d3.select('#yAxis')
+            .transition()
+            .duration(transitionDuration)
+            .call(d3.axisLeft(newY));
 
         // movement of the other rects
         d3.select('svg')
@@ -94,6 +99,8 @@ let aaa = window.innerWidth
             .duration(transitionDuration)
             .attr('x', (dataMap.size-1)*(width / (dataArray.length+1)))
             .attr('width', (width) / (dataArray.length+1 > 0 ? dataArray.length+1 : 1))
+
+
 
 
         setTimeout(() => setDataMap(new Map(dataMap)), transitionDuration);
@@ -131,14 +138,109 @@ let aaa = window.innerWidth
 
 
 
+
+
+    // X axis: scale and draw:
+    var x = d3.scaleLinear()
+        .domain([0, 100]) // axis y range
+        .range([0, width]);//data.lenght]); // axis x range
+
+
+    // Y axis: scale and draw:
+    var y = d3.scaleLinear()
+        .range([0, height])
+        .domain([d3.max(dataArray, d => d.value), 0])
+        .domain([d3.max(dataArray, d => d.value), 0])
+
+
+
+    d3.select('body')
+        .attr('focusable', 'true')
+        .on('keydown', function(e) { // manage  n (or N) keys
+            if(e.keyIdentifier == 'U+004E'){ // 'n' key
+                addRandomElementToMap();
+            }
+        });
+
+    /* Function to update a value of a specified rect (d3 element)
+    * (with transitions to other rects too) */
+    function updateValue(d3element, elementUuid, newValue, transitionTime){
+        let oldValue = parseFloat(d3.select(d3element).attr('value'));
+
+        if(newValue <= 0.5)
+            newValue = 0.5
+
+
+        if(newValue > maxYvalue){ // here the user changes the value with a value grater then the max value
+            // update y axis value (scale domain)
+            y.domain([newValue, 0]);
+            d3.select('#yAxis')
+                .transition()
+                .duration(transitionTime)
+                .call(d3.axisLeft(y));
+
+        } else if(oldValue == maxYvalue){ // user decreases the value of the maximum rect
+            let secondMaxYvalue = d3.max([...dataArray].filter(x => x.value != oldValue), d => d.value);
+            let demainValue = 0;
+
+            /* if the user decides to decrease the maximum rect there are 2 scenarios:
+                    1) newValue for the (old) maximum rect is less then the second maximum value
+                        -> the (old) maximum rect is no longer the maximum rect
+                    2) newValue for the (old) maximum rect is grater or equal then the second maximum value
+                        -> the (old) maximum rect is still the maximum rect */
+            if(newValue < secondMaxYvalue){ // scenario 1)
+                demainValue = secondMaxYvalue;
+            } else { // scenario 2)
+                demainValue = newValue;
+            }
+
+            // update y axis value (scale domain)
+            y.domain([demainValue, 0]);
+            d3.select('#yAxis')
+                .transition()
+                .duration(transitionTime)
+                .call(d3.axisLeft(y));
+        }
+
+        // update each rect
+        d3.select('svg')
+            .selectAll('rect')
+            .transition()
+            .duration(transitionTime)
+            .attr('y', d => y(d.value))
+            .attr('height', d => height - y(d.value));
+
+        // update rect modified with new height
+        d3.select(d3element)
+            .transition()
+            .duration(transitionTime)
+            .attr('y', y(newValue))
+            .attr('height', height - y(newValue));
+
+        // data update after all transition finish
+        setTimeout(() => {
+            setDataMap(oldMap => {
+                let newMap = new Map(oldMap);
+                let elementToModify = oldMap.get(elementUuid);
+                elementToModify.value = newValue;
+                newMap.set(elementUuid, elementToModify);
+                return newMap;
+            })
+        }, transitionTime);
+    }
+
+
+
+
+
+
+
     useLayoutEffect(() => {
-
-
 
         if (Array.isArray(dataArray)) {
 
-
             d3.select('#histogram svg').remove();
+
             let svg = d3.select("#histogram")
                 .append('svg')
                 .attr('width', width + margin.left + margin.right)
@@ -149,100 +251,22 @@ let aaa = window.innerWidth
 
 
 
-            // X axis: scale and draw:
-            var x = d3.scaleLinear()
-                .domain([0, 100]) // axis y range
-                .range([0, width]);//data.lenght]); // axis x range
+
+
             var xAxis = svg.append("g")
+                .attr('id', 'xAxis')
                 .attr("transform", "translate(0," + height + ")");
+
+
+            let yAxis = svg.append("g")
+                .attr('id', 'yAxis');
+
             xAxis.call(d3.axisBottom(x));
-
-
-            // Y axis: scale and draw:
-            var y = d3.scaleLinear()
-                .range([0, height])
-                .domain([d3.max(dataArray, d => d.value), 0])
-            let yAxis = svg.append("g");
 
             yAxis.call(d3.axisLeft(y));
 
 
             let translateX = width / (dataArray.length);
-
-
-            d3.select('body')
-                .attr('focusable', 'true')
-                .on('keydown', function(e) { // manage up, down and canc and n (or N) keys
-                    if(e.keyIdentifier == 'U+004E'){ // 'n' key
-                        addRandomElementToMap();
-
-                    }
-                });
-
-            /* Function to update a value of a specified rect (d3 element)
-            * (with transitions to other rects too) */
-            function updateValue(d3element, elementUuid, newValue, transitionTime){
-                let oldValue = parseFloat(d3.select(d3element).attr('value'));
-
-                if(newValue <= 0.5)
-                    newValue = 0.5
-
-                if(newValue > maxYvalue){ // here the user changes the value with a value grater then the max value
-
-                    // update y axis value (scale domain)
-                    y.domain([newValue, 0]);
-                    yAxis.transition()
-                        .duration(transitionTime)
-                        .call(d3.axisLeft(y));
-
-                } else if(oldValue == maxYvalue){ // user decreases the value of the maximum rect
-                    let secondMaxYvalue = d3.max([...dataArray].filter(x => x.value != oldValue), d => d.value);
-                    let demainValue = 0;
-
-                    /* if the user decides to decrease the maximum rect there are 2 scenarios:
-                            1) newValue for the (old) maximum rect is less then the second maximum value
-                                -> the (old) maximum rect is no longer the maximum rect
-                            2) newValue for the (old) maximum rect is grater or equal then the second maximum value
-                                -> the (old) maximum rect is still the maximum rect */
-                    if(newValue < secondMaxYvalue){ // scenario 1)
-                        demainValue = secondMaxYvalue;
-                    } else { // scenario 2)
-                        demainValue = newValue;
-                    }
-
-                    // update y axis value (scale domain)
-                    y.domain([demainValue, 0]);
-                    yAxis.transition()
-                        .duration(transitionTime)
-                        .call(d3.axisLeft(y));
-                }
-
-                // update each rect
-                d3.select('svg')
-                    .selectAll('rect')
-                    .transition()
-                    .duration(transitionTime)
-                    .attr('y', d => y(d.value))
-                    .attr('height', d => height - y(d.value));
-
-                // update rect modified with new height
-                d3.select(d3element)
-                    .transition()
-                    .duration(transitionTime)
-                    .attr('y', y(newValue))
-                    .attr('height', height - y(newValue));
-
-                // data update after all transition finish
-                setTimeout(() => {
-                    setDataMap(oldMap => {
-                        let newMap = new Map(oldMap);
-                        let elementToModify = oldMap.get(elementUuid);
-                        elementToModify.value = newValue;
-                        newMap.set(elementUuid, elementToModify);
-                        return newMap;
-                    })
-                }, transitionTime);
-            }
 
 
 
@@ -381,7 +405,7 @@ let aaa = window.innerWidth
                     .on('start', function dragStarted(){
                         d3.select(this)
                             .attr('stroke', 'black')
-                            //.attr('oldX', parseFloat(d3.select(this).attr('x')))
+                        //.attr('oldX', parseFloat(d3.select(this).attr('x')))
                     })
                     .on('drag', function dragged(event, d){
 
@@ -403,9 +427,9 @@ let aaa = window.innerWidth
                     .on('end', function dragEnded(){
                         d3.select(this)
                             .attr('stroke', null)
-                            //.transition()
-                            //.duration(500)
-                           // .attr('x', parseFloat(d3.select(this).attr('oldX')))
+                        //.transition()
+                        //.duration(500)
+                        // .attr('x', parseFloat(d3.select(this).attr('oldX')))
                     })
                 )
             histogram.exit().remove();
@@ -414,89 +438,96 @@ let aaa = window.innerWidth
 
     return (
 
-<div className="container-fluid border border-dark">
-    <div className='row'>
-        <div className='col pt-2 pb-2'>
-            <button
-                className='btn btn-outline-primary mr-3'
-                ref={addRectBtn}
-                onClick={() => {
-                    addRandomElementToMap({value: 900}, 500)
-                    // TODO bug: l'asse delle y non si aggiorna bene, sistemare la cosa senza farlo hardcoded ma con il menù
-                    addRectBtn.current.disabled = true;
-                    setTimeout(() => addRectBtn.current.disabled = false, 500)
-                }}>
-                Add Rect
-            </button>
-            <button
-                className='btn btn-outline-primary'
-                ref={addRandomRectBtn}
-                onClick={() => {
-                    addRandomElementToMap(null,500)
-                    addRandomRectBtn.current.disabled = true;
-                    setTimeout(() => addRandomRectBtn.current.disabled = false, 500)
-                }}>
-                Add Random Rect
-            </button>
-        </div>
-    </div>
-    <div className='row'>
-        <div className='col-12 col-md-8 border border-dark' id='histogram-container'>
+        <div className="container-fluid border border-dark">
+            <div className='row'>
+                <div className='col pt-2 pb-2'>
+                    <button
+                        className='btn btn-outline-primary mr-3'
+                        ref={addRectBtn}
+                        onClick={() => {
+                            addRandomElementToMap({value: 900}, 500)
+                            // TODO bug: l'asse delle y non si aggiorna bene, sistemare la cosa senza farlo hardcoded ma con il menù
+                            addRectBtn.current.disabled = true;
+                            setTimeout(() => addRectBtn.current.disabled = false, 500)
+                        }}>
+                        Add Rect
+                    </button>
+                    <button
+                        className='btn btn-outline-primary'
+                        ref={addRandomRectBtn}
+                        onClick={() => {
+                            addRandomElementToMap(null,500)
+                            addRandomRectBtn.current.disabled = true;
+                            setTimeout(() => addRandomRectBtn.current.disabled = false, 500)
+                        }}>
+                        Add Random Rect
+                    </button>
 
-            <div id="histogram" />
-        </div>
-        <div className='col-12 col-md-4 border border-dark'>
-secondo menu <br />
-            <div>
-                <button
-                    >
-                    ciaoo
-                </button>
-                <input
-                    ref={wheel}
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="1"
-                    defaultValue={wheelSpeed}
-                    onChange={() => {
-                        setWheelSpeed(parseInt(wheel.current.value))
-                    }}/>{wheelSpeed}
-                <div>
                 </div>
             </div>
+            <div className='row'>
 
-            <div>
-                <label htmlFor="widthInput">Edit svg width</label>
 
-                <input
-                    id="widthInput"
-                    className='input'
-                    ref={widthInput}
-                    type="number"
-                    min={250}
-                    max={getWidth() - 50}
-                    step={10}
-                    defaultValue={svgWidth}
-                    onChange={() => {
-                        let value = parseInt(widthInput.current.value);
-                        let [min, max] = [parseInt(widthInput.current.min), parseInt(widthInput.current.max)]
-                        if (value > max)
-                            value = max;
-                        if (value < min)
-                            value = min;
-                        //setSvgWidth(parseInt(value))
-                    }}
-                />
-                {window.innerWidth}
+
+
+
+
+                    <div className='col-12 col-md-8 border border-dark p-0' id='histogram-container'>
+
+                        <div id="histogram" />
+                    </div>
+                    <div className='col-12 col-md-4 border border-dark '>
+<div className='row'>
+                        <input
+                            ref={wheel}
+                            type="range"
+                            min="1"
+                            max="20"
+                            step="1"
+                            defaultValue={wheelSpeed}
+                            onChange={() => {
+                                setWheelSpeed(parseInt(wheel.current.value))
+                            }}/>{wheelSpeed}
+</div>
+                        <div>
+                        </div>
+                        <div className="input-group">
+                            <div>
+                                <label htmlFor="customRange1" className="form-label row">
+                                    Example range
+                                </label>
+                            </div>
+                            <div className="row">
+                                <input type="range" className="form-range" id="customRange1" />
+                            </div>
+                        </div>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             </div>
         </div>
-    </div>
 
 
 
 
-</div>
+
+
+
+
     );
 };
 
