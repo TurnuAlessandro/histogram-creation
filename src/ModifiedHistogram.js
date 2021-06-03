@@ -23,6 +23,7 @@ function getFromUuid(array, uuid){
     return [array[position], position];
 }
 
+
 function ModifiedHistogram({ title }) {
     let [dataArray, setDataArray] = useState([]);
     let wheel = useRef(null);
@@ -62,8 +63,8 @@ function ModifiedHistogram({ title }) {
 
     // Adds an element to the map at the end of the map => adds a rect after the last one
     function addRandomElementToMap(data, transitionDuration){
-        let id = uuidv4();
-        dataArray.push(element(id, data?.value, data?.color));
+
+        dataArray.push(element(uuidv4(), null, data?.color));
 
 
         // needed to scale all the other rects
@@ -110,23 +111,6 @@ function ModifiedHistogram({ title }) {
 
         setTimeout(() => setDataArray([...dataArray]), transitionDuration);
     }
-/*
-    function addRandomElementToMapAfterXuuid(xUuid){
-        let dataMapEntries = dataMap.entries();
-
-        let newMap = new Map();
-
-        let newElementUuid = uuidv4();
-        [...dataMapEntries].forEach(([k, v]) => {
-            newMap.set(k, v);
-            if(k == xUuid) {
-                newMap.set(newElementUuid, element(newElementUuid))
-            }
-        })
-
-        setDataArray(newMap);
-
-    }*/
 
     // onMount: used to initialize the map
     useEffect(() => {/*
@@ -236,15 +220,15 @@ function ModifiedHistogram({ title }) {
         setTimeout(() => {
             setDataArray(oldArray => {
                 let newArray = [...oldArray]
-                let [elementToModify, i] = getFromUuid(newArray, uuid);
+                let [_, i] = getFromUuid(newArray, uuid);
                 newArray[i].value = newValue;
                 return newArray;
             })
         }, transitionTime);
     }
+
     function highlightRect(index){
-
-
+        // unhighlight all rects
         d3.selectAll('rect')
             .attr('stroke-width', 0)
             .attr('stroke', null)
@@ -253,7 +237,6 @@ function ModifiedHistogram({ title }) {
                 if(selectedElement?.uuid == data.uuid)
                     return;
                 d3.select(this)
-
                     .attr('opacity', 0.6)
                     .attr('stroke', 'black')
                     .attr('stroke-width', 1)
@@ -266,14 +249,13 @@ function ModifiedHistogram({ title }) {
             })
 
 
-
+        // Parameter check
         if(index == null || index < 0 || index >= dataArray.length)
             return;
 
 
+        // Highlight element currently selected
         let uuid = dataArray[index].uuid;
-
-
         d3.select(`#rect${encode(uuid)}`)
             .attr('stroke', 'black')
             .attr('stroke-width', '3px')
@@ -535,6 +517,26 @@ function ModifiedHistogram({ title }) {
             .html(d => `${d.name}: ${d.value}`)
 
 
+        let texts = svg.append('g').selectAll("text")
+            .data(dataArray)
+            .enter()
+            .append("text")
+            .text(function(d) {
+                return d.value
+
+            })
+            .attr("text-anchor", "middle")
+            .attr("x", function(d, i) {
+                return i * (width / dataArray.length) + (width / dataArray.length - 0.2) / 2;
+            })
+            .attr("y", function(d) {
+                return  y(d.value)-5;
+            })
+            .attr("font-size", "11px")
+            .attr("fill", "black");
+        
+
+        texts.exit().remove();
         histogram.exit().remove();
     }, [dataArray, svgWidth]);
 
