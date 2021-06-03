@@ -1,7 +1,8 @@
 //https://codepen.io/davidhalford/pen/ywEva?editors=0010
 
 function getCorrectTextColor(hexBackgroundColor){
-
+    if(hexBackgroundColor == null)
+        return 'black';
     /*
     From this W3C document: http://www.webmasterworld.com/r.cgi?f=88&d=9769&url=http://www.w3.org/TR/AERT#color-contrast
 
@@ -12,7 +13,7 @@ I know this could be more compact, but I think this is easier to read/explain.
 
     */
 
-    let threshold = 130; /* about half of 256. Lower threshold equals more dark text on dark background  */
+    let threshold = 135; /* about half of 256. Lower threshold equals more dark text on dark background  */
 
 
     let cutHex = h => {
@@ -35,7 +36,8 @@ I know this could be more compact, but I think this is easier to read/explain.
 
 
 
-    let cBrightness = ((hRed * 299) + (hGreen * 587) + (hBlue * 114)) / 1000;
+    //let cBrightness = ((hRed * 299) + (hGreen * 587) + (hBlue * 114)) / 1000;
+    let cBrightness = ((hRed * 333) + (hGreen * 334) + (hBlue * 333)) / 1000;
     if (cBrightness > threshold){return "black";} else { return "white";}
 }
 
